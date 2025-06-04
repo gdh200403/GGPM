@@ -80,16 +80,14 @@ class DDPMModel:
     def interpolate(self, x1, x2, num_steps=10):
         """在两个图像之间进行插值"""
         with torch.no_grad():
-            # 对两个图像添加噪声到相同的时间步
-            t = torch.randint(0, self.timesteps // 4, (1,), device=self.device)
-            
             # 线性插值
             alphas = torch.linspace(0, 1, num_steps, device=self.device)
             interpolated_samples = []
             
             for alpha in alphas:
-                # 在潜在空间中插值
+                # 在图像空间中直接插值
                 interpolated = (1 - alpha) * x1 + alpha * x2
                 interpolated_samples.append(interpolated)
             
-            return torch.stack(interpolated_samples) 
+            # 拼接成batch，保持4D张量格式 (batch_size, channels, height, width)
+            return torch.cat(interpolated_samples, dim=0) 

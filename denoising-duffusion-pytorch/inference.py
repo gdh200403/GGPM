@@ -42,11 +42,17 @@ def generate_interpolation(model, num_steps=10, save_path='interpolation.png'):
         samples = model.sample(batch_size=2)
         x1, x2 = samples[0:1], samples[1:2]
         
+        print(f"调试信息: x1 shape: {x1.shape}, x2 shape: {x2.shape}")
+        
         # 执行插值
         interpolated = model.interpolate(x1, x2, num_steps=num_steps)
         
+        print(f"调试信息: interpolated shape: {interpolated.shape}")
+        
         # 将起始和结束样本添加到插值序列
         full_sequence = torch.cat([x1, interpolated, x2], dim=0)
+        
+        print(f"调试信息: full_sequence shape: {full_sequence.shape}")
     
     # 保存插值序列
     save_image_grid(full_sequence, save_path, nrow=num_steps+2, title='Interpolation Sequence')
