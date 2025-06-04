@@ -42,17 +42,11 @@ def generate_interpolation(model, num_steps=10, save_path='interpolation.png'):
         samples = model.sample(batch_size=2)
         x1, x2 = samples[0:1], samples[1:2]
         
-        print(f"调试信息: x1 shape: {x1.shape}, x2 shape: {x2.shape}")
-        
         # 执行插值
         interpolated = model.interpolate(x1, x2, num_steps=num_steps)
         
-        print(f"调试信息: interpolated shape: {interpolated.shape}")
-        
         # 将起始和结束样本添加到插值序列
         full_sequence = torch.cat([x1, interpolated, x2], dim=0)
-        
-        print(f"调试信息: full_sequence shape: {full_sequence.shape}")
     
     # 保存插值序列
     save_image_grid(full_sequence, save_path, nrow=num_steps+2, title='Interpolation Sequence')
@@ -107,6 +101,9 @@ def compare_with_real_data(model, num_samples=8):
         real_samples.append(dataset[i][0])
     real_samples = torch.stack(real_samples)
     
+    # 将真实样本移动到模型所在的设备
+    real_samples = real_samples.to(model.device)
+    
     # 生成假样本
     with torch.no_grad():
         fake_samples = model.sample(batch_size=num_samples)
@@ -115,7 +112,7 @@ def compare_with_real_data(model, num_samples=8):
     combined = torch.cat([real_samples, fake_samples], dim=0)
     
     # 保存对比图
-    save_image_grid(combined, 'real_vs_generated.png', nrow=num_samples,
+    save_image_grid(combined, 'inference_results/real_vs_generated.png', nrow=num_samples,
                    title='Real (Top) vs Generated (Bottom)')
     
     return real_samples, fake_samples
