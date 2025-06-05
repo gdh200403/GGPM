@@ -74,8 +74,25 @@ class DDPMModel:
     def load_model(self, path):
         """加载模型"""
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)
-        self.unet.load_state_dict(checkpoint['unet_state_dict'])
-        print(f"模型已从 {path} 加载")
+        
+        # 处理torch.compile编译后的模型权重
+        state_dict = checkpoint['unet_state_dict']
+        
+        # 检查是否有_orig_mod.前缀（torch.compile产生的）
+        if any(key.startswith('_orig_mod.') for key in state_dict.keys()):
+            print("⚠️ 检测到torch.compile编译的模型，正在处理权重前缀...")
+            # 移除_orig_mod.前缀
+            new_state_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith('_orig_mod.'):
+                    new_key = key[len('_orig_mod.'):]  # 移除前缀
+                    new_state_dict[new_key] = value
+                else:
+                    new_state_dict[key] = value
+            state_dict = new_state_dict
+        
+        self.unet.load_state_dict(state_dict)
+        print(f"✅ 模型已从 {path} 加载")
     
     def interpolate(self, x1, x2, num_steps=10):
         """在两个图像之间进行插值"""
