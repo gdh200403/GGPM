@@ -110,10 +110,10 @@ def train_stl10_optimized_ddpm(
     # 获取数据加载器
     dataloader, dataset = get_stl10_optimized_dataloader(batch_size=batch_size)
     
-    # STL-10专用的强化模型配置
+    # STL-10专用的强化模型配置（96x96兼容）
     model_config = {
         'dim': 256,  # 显著增加基础维度
-        'dim_mults': (1, 1, 2, 2, 4, 4, 8),  # 更深的层级结构
+        'dim_mults': (1, 2, 2, 4, 8),  # 5层，下采样因子32（96能被32整除）
         # 'flash_attn': True,  # 如果可用的话
     }
     
