@@ -53,15 +53,15 @@ def get_optimized_cifar10_dataloader(batch_size=32, image_size=32, num_workers=N
     return dataloader, dataset
 
 def train_ddpm_optimized(
-    epochs=50, 
+    epochs=500,  # 增加到500轮以获得更好效果
     batch_size=32, 
     learning_rate=1e-4, 
-    save_interval=10,
+    save_interval=25,  # 调整保存间隔，避免频繁保存
     use_amp=True,  # 混合精度训练
     gradient_accumulation_steps=1,  # 梯度累积
     compile_model=True,  # 模型编译加速
     efficient_checkpointing=True,  # 高效检查点
-    fast_sampling_interval=5  # 快速采样间隔
+    fast_sampling_interval=10  # 调整快速采样间隔
 ):
     """优化版本的DDPM训练"""
     
@@ -99,11 +99,22 @@ def train_ddpm_optimized(
         eps=1e-8
     )
     
-    # 学习率调度器
+    # 学习率调度器 - 针对长训练优化
+    # 前10%的epoch用于预热，然后使用余弦退火
+    warmup_epochs = max(1, epochs // 10)  # 预热epoch数
+    
+    # 使用更平滑的学习率调度
     scheduler = optim.lr_scheduler.CosineAnnealingLR(
         optimizer, 
-        T_max=epochs,
-        eta_min=learning_rate * 0.1
+        T_max=epochs - warmup_epochs,  # 预热后的训练轮数
+        eta_min=learning_rate * 0.01  # 更低的最小学习率
+    )
+    
+    # 预热调度器（简单的线性预热）
+    warmup_scheduler = optim.lr_scheduler.LinearLR(
+        optimizer,
+        start_factor=0.1,  # 从10%的学习率开始
+        total_iters=warmup_epochs
     )
     
     # 混合精度训练
@@ -124,14 +135,19 @@ def train_ddpm_optimized(
     # 训练历史记录
     losses = []
     best_loss = float('inf')
+    patience_counter = 0  # 用于早停的计数器
+    patience = epochs // 4  # 耐心值设为总轮数的1/4，实际上对DDPM不建议使用
     
     print(f"📋 训练配置:")
-    print(f"   - 训练轮数: {epochs}")
+    print(f"   - 训练轮数: {epochs} (预计耗时: ~{epochs * len(dataloader) * batch_size / 50000 * 2:.1f}小时)")
     print(f"   - 实际批次大小: {batch_size}")
     print(f"   - 有效批次大小: {effective_batch_size}")
     print(f"   - 初始学习率: {learning_rate}")
+    print(f"   - 预热轮数: {warmup_epochs}")
     print(f"   - 数据集大小: {len(dataset)}")
     print(f"   - 预计每epoch批次数: {len(dataloader)}")
+    print(f"   - 保存间隔: 每{save_interval}轮")
+    print(f"   - 采样间隔: 每{fast_sampling_interval}轮")
     print("=" * 60)
     
     # 开始训练
@@ -173,14 +189,20 @@ def train_ddpm_optimized(
             epoch_losses.append(loss.item() * gradient_accumulation_steps)
             
             # 更新进度条
-            current_lr = scheduler.get_last_lr()[0]
+            if epoch < warmup_epochs:
+                current_lr = warmup_scheduler.get_last_lr()[0]
+            else:
+                current_lr = scheduler.get_last_lr()[0]
             pbar.set_postfix({
                 'loss': f'{loss.item() * gradient_accumulation_steps:.4f}',
                 'lr': f'{current_lr:.2e}'
             })
         
-        # 学习率调度
-        scheduler.step()
+        # 学习率调度 - 区分预热期和正常训练期
+        if epoch < warmup_epochs:
+            warmup_scheduler.step()
+        else:
+            scheduler.step()
         
         # Epoch统计
         epoch_time = time.time() - epoch_start_time
@@ -191,14 +213,19 @@ def train_ddpm_optimized(
         print(f'   ⏱️  用时: {epoch_time:.2f}秒')
         print(f'   📉 平均损失: {avg_loss:.4f}')
         print(f'   📈 学习率: {current_lr:.2e}')
+        if epoch < warmup_epochs:
+            print(f'   🔥 预热阶段: {epoch+1}/{warmup_epochs}')
         
         # 保存最佳模型
         if avg_loss < best_loss:
             best_loss = avg_loss
+            patience_counter = 0  # 重置耐心计数器
             if efficient_checkpointing:
                 best_path = 'checkpoints/ddpm_best.pt'
                 model.save_model(best_path)
-                print(f'   🏆 新的最佳模型已保存')
+                print(f'   🏆 新的最佳模型已保存 (改进: {(losses[-2] - avg_loss) if len(losses) > 1 else 0:.4f})')
+        else:
+            patience_counter += 1
         
         # 快速采样监控
         if (epoch + 1) % fast_sampling_interval == 0:
@@ -234,6 +261,23 @@ def train_ddpm_optimized(
             plot_optimized_losses(losses, f'samples/loss_curve_epoch_{epoch+1}.png')
             print(f'   💾 完整检查点已保存')
         
+        # 重要里程碑保存（100, 200, 300, 400轮）
+        if (epoch + 1) in [100, 200, 300, 400]:
+            milestone_path = f'checkpoints/ddpm_milestone_{epoch+1}.pt'
+            model.save_model(milestone_path)
+            
+            # 生成高质量样本进行里程碑评估
+            model.unet.eval()
+            with torch.no_grad():
+                milestone_samples = model.sample(batch_size=25)  # 更多样本
+                save_optimized_samples(
+                    milestone_samples, 
+                    f'samples/milestone_{epoch+1}_samples.png',
+                    epoch=epoch+1,
+                    loss=avg_loss
+                )
+            print(f'   🏁 里程碑 {epoch+1} 轮模型已保存')
+        
         print("-" * 50)
     
     # 训练完成
@@ -243,10 +287,14 @@ def train_ddpm_optimized(
     final_path = 'checkpoints/ddpm_final_optimized.pt'
     model.save_model(final_path)
     
-    print("🎉 优化训练完成！")
-    print(f"⏱️  总训练时间: {total_time/3600:.2f}小时")
+    print("🎉 长期优化训练完成！")
+    print(f"⏱️  总训练时间: {total_time/3600:.2f}小时 ({total_time/60:.1f}分钟)")
     print(f"📉 最佳损失: {best_loss:.4f}")
-    print(f"💾 模型已保存到: {final_path}")
+    print(f"📈 训练轮数: {epochs} 轮")
+    print(f"💾 最终模型已保存到: {final_path}")
+    print(f"📁 检查点目录: checkpoints/")
+    print(f"🖼️  样本目录: samples/")
+    print(f"⚡ 平均每轮用时: {total_time/epochs:.1f}秒")
     
     return model, losses
 
@@ -308,9 +356,14 @@ if __name__ == "__main__":
     use_amp = '--no-amp' not in sys.argv
     compile_model = '--no-compile' not in sys.argv
     
-    print("🚀 启动优化训练脚本")
+    print("🚀 启动长期优化训练脚本")
     print(f"混合精度: {'开启' if use_amp else '关闭'}")
     print(f"模型编译: {'开启' if compile_model else '关闭'}")
+    print("📝 训练配置说明:")
+    print("   - 增加到500轮训练以获得更好的生成质量")
+    print("   - 添加学习率预热机制提高训练稳定性")
+    print("   - 设置里程碑保存点便于监控长期训练效果")
+    print("   - 调整保存和采样间隔减少IO开销")
     
     try:
         # 针对不同GPU优化批次大小
@@ -330,14 +383,14 @@ if __name__ == "__main__":
             gradient_accumulation = 1
         
         model, losses = train_ddpm_optimized(
-            epochs=50,
+            epochs=250,  # 增加训练轮数获得更好效果
             batch_size=batch_size,
-            learning_rate=2e-4,  # 稍微提高学习率
-            save_interval=10,
+            learning_rate=1e-4,  # 稍微提高学习率
+            save_interval=25,  # 调整保存间隔
             use_amp=use_amp,
             gradient_accumulation_steps=gradient_accumulation,
             compile_model=compile_model,
-            fast_sampling_interval=5
+            fast_sampling_interval=10  # 调整采样间隔
         )
         
         print("🎉 优化训练成功完成！")
