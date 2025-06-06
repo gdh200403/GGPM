@@ -14,42 +14,25 @@ class DDPMConfig:
     DIM = 64
     DIM_MULTS = (1, 2, 4, 8)
     TIMESTEPS = 1000
-    SAMPLING_TIMESTEPS = 250
-    LOSS_TYPE = 'l1'  # 'l1' 或 'l2'
-    RESNET_BLOCK_GROUPS = 8
     
-    # 训练参数
-    EPOCHS = 100
+    # Trainer训练参数
+    TRAIN_NUM_STEPS = 100000  # 总训练步数
     BATCH_SIZE = 32
-    LEARNING_RATE = 1e-4
-    WEIGHT_DECAY = 0.0
-    ADAM_BETAS = (0.9, 0.99)
-    GRADIENT_CLIP = 1.0
+    LEARNING_RATE = 2e-5
+    GRADIENT_ACCUMULATE_EVERY = 2  # 梯度累积步数
+    EMA_DECAY = 0.995  # 指数移动平均衰减
+    AMP = True  # 混合精度训练
     
     # 数据参数
     DATA_ROOT = './data'
-    NUM_WORKERS = 2
-    PIN_MEMORY = True
     
-    # 保存和日志参数
-    SAVE_INTERVAL = 20  # 每多少个epoch保存一次
-    CHECKPOINT_DIR = 'checkpoints'
-    SAMPLE_DIR = 'samples'
-    LOG_INTERVAL = 100  # 每多少个batch打印一次
-    
-    # 推理参数
-    INFERENCE_BATCH_SIZE = 16
-    NUM_SAMPLES_TO_GENERATE = 64
+    # Trainer保存和采样参数
+    RESULTS_FOLDER = 'results'  # Trainer结果文件夹
+    SAVE_AND_SAMPLE_EVERY = 1000  # 每多少步保存和采样
+    NUM_SAMPLES = 16  # 采样数量
     
     # 设备配置
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
-    # Demo测试参数
-    DEMO_EPOCHS = 5
-    DEMO_BATCH_SIZE = 8
-    DEMO_DIM = 32
-    DEMO_DIM_MULTS = (1, 2, 4)
-    DEMO_TIMESTEPS = 100
 
 # 不同规模的配置预设
 class TinyConfig(DDPMConfig):
@@ -58,7 +41,8 @@ class TinyConfig(DDPMConfig):
     DIM_MULTS = (1, 2, 4)
     TIMESTEPS = 100
     BATCH_SIZE = 16
-    EPOCHS = 20
+    TRAIN_NUM_STEPS = 10000
+    SAVE_AND_SAMPLE_EVERY = 500
 
 class SmallConfig(DDPMConfig):
     """小规模配置 - 适合个人GPU"""
@@ -66,7 +50,8 @@ class SmallConfig(DDPMConfig):
     DIM_MULTS = (1, 2, 4)
     TIMESTEPS = 500
     BATCH_SIZE = 32
-    EPOCHS = 50
+    TRAIN_NUM_STEPS = 50000
+    SAVE_AND_SAMPLE_EVERY = 1000
 
 class MediumConfig(DDPMConfig):
     """中等规模配置 - 适合服务器GPU"""
@@ -74,7 +59,8 @@ class MediumConfig(DDPMConfig):
     DIM_MULTS = (1, 2, 4, 8)
     TIMESTEPS = 1000
     BATCH_SIZE = 64
-    EPOCHS = 100
+    TRAIN_NUM_STEPS = 200000
+    SAVE_AND_SAMPLE_EVERY = 2000
 
 class LargeConfig(DDPMConfig):
     """大规模配置 - 适合高端GPU"""
@@ -82,7 +68,8 @@ class LargeConfig(DDPMConfig):
     DIM_MULTS = (1, 2, 4, 8)
     TIMESTEPS = 1000
     BATCH_SIZE = 128
-    EPOCHS = 200
+    TRAIN_NUM_STEPS = 700000
+    SAVE_AND_SAMPLE_EVERY = 5000
 
 # 根据GPU内存自动选择配置
 def get_auto_config():
@@ -107,38 +94,6 @@ def get_auto_config():
         print(f"GPU内存: {gpu_memory:.1f}GB - 使用Large配置")
         return LargeConfig()
 
-# 数据增强配置
-class AugmentationConfig:
-    """数据增强配置"""
-    HORIZONTAL_FLIP = True
-    VERTICAL_FLIP = False
-    ROTATION = 0  # 度数
-    COLOR_JITTER = {
-        'brightness': 0.1,
-        'contrast': 0.1,
-        'saturation': 0.1,
-        'hue': 0.05
-    }
-    NORMALIZE_MEAN = (0.5, 0.5, 0.5)
-    NORMALIZE_STD = (0.5, 0.5, 0.5)
-
-# 调度器配置
-class SchedulerConfig:
-    """学习率调度器配置"""
-    USE_SCHEDULER = True
-    SCHEDULER_TYPE = 'cosine'  # 'step', 'cosine', 'exponential'
-    
-    # Step调度器参数
-    STEP_SIZE = 30
-    GAMMA = 0.1
-    
-    # Cosine调度器参数
-    T_MAX = 100
-    ETA_MIN = 1e-6
-    
-    # Exponential调度器参数
-    EXPONENTIAL_GAMMA = 0.95
-
 def print_config(config):
     """打印配置信息"""
     print("=" * 50)
@@ -148,22 +103,23 @@ def print_config(config):
     print(f"  模型维度: {config.DIM}")
     print(f"  维度倍数: {config.DIM_MULTS}")
     print(f"  时间步数: {config.TIMESTEPS}")
-    print(f"  采样步数: {config.SAMPLING_TIMESTEPS}")
     
-    print("\n训练配置:")
-    print(f"  训练轮数: {config.EPOCHS}")
+    print("\nTrainer训练配置:")
+    print(f"  总训练步数: {config.TRAIN_NUM_STEPS}")
     print(f"  批次大小: {config.BATCH_SIZE}")
     print(f"  学习率: {config.LEARNING_RATE}")
+    print(f"  梯度累积步数: {config.GRADIENT_ACCUMULATE_EVERY}")
+    print(f"  EMA衰减: {config.EMA_DECAY}")
+    print(f"  混合精度: {config.AMP}")
     print(f"  设备: {config.DEVICE}")
     
     print("\n数据配置:")
     print(f"  数据根目录: {config.DATA_ROOT}")
-    print(f"  工作进程数: {config.NUM_WORKERS}")
     
     print("\n保存配置:")
-    print(f"  检查点目录: {config.CHECKPOINT_DIR}")
-    print(f"  样本目录: {config.SAMPLE_DIR}")
-    print(f"  保存间隔: {config.SAVE_INTERVAL} epochs")
+    print(f"  结果文件夹: {config.RESULTS_FOLDER}")
+    print(f"  保存采样间隔: {config.SAVE_AND_SAMPLE_EVERY} steps")
+    print(f"  采样数量: {config.NUM_SAMPLES}")
     print("=" * 50)
 
 if __name__ == "__main__":

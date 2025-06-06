@@ -1,11 +1,8 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from denoising_diffusion_pytorch import Unet, GaussianDiffusion
-import numpy as np
+from denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer
 
 class DDPMModel:
-    """经典DDPM模型封装类"""
+    """使用Trainer的DDPM模型封装类"""
     
     def __init__(self, 
                  image_size=32,
@@ -31,8 +28,7 @@ class DDPMModel:
         self.diffusion = GaussianDiffusion(
             self.unet,
             image_size=image_size,
-            timesteps=timesteps,
-            sampling_timesteps=min(timesteps, 250)  # 确保采样步数不超过总时间步数
+            timesteps=timesteps
         ).to(device)
         
         print(f"DDPM模型初始化完成:")
@@ -46,65 +42,25 @@ class DDPMModel:
         """计算模型参数数量"""
         return sum(p.numel() for p in self.unet.parameters() if p.requires_grad)
     
-    def train_step(self, batch):
-        """单步训练"""
-        batch = batch.to(self.device)
-        loss = self.diffusion(batch)
-        return loss
+    def create_trainer(self, data_path, config):
+        """创建Trainer实例"""
+        trainer = Trainer(
+            self.diffusion,
+            data_path,
+            train_batch_size=config.BATCH_SIZE,
+            train_lr=config.LEARNING_RATE,
+            train_num_steps=config.TRAIN_NUM_STEPS,
+            gradient_accumulate_every=config.GRADIENT_ACCUMULATE_EVERY,
+            ema_decay=config.EMA_DECAY,
+            amp=config.AMP,
+            results_folder=config.RESULTS_FOLDER,
+            save_and_sample_every=config.SAVE_AND_SAMPLE_EVERY,
+            num_samples=config.NUM_SAMPLES
+        )
+        return trainer
     
-    def sample(self, batch_size=16, return_all_timesteps=False):
+    def sample(self, batch_size=16):
         """生成样本"""
         with torch.no_grad():
-            samples = self.diffusion.sample(
-                batch_size=batch_size,
-                return_all_timesteps=return_all_timesteps
-            )
-        return samples
-    
-    def save_model(self, path):
-        """保存模型"""
-        torch.save({
-            'unet_state_dict': self.unet.state_dict(),
-            'image_size': self.image_size,
-            'channels': self.channels,
-            'timesteps': self.timesteps
-        }, path)
-        print(f"模型已保存到: {path}")
-    
-    def load_model(self, path):
-        """加载模型"""
-        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
-        
-        # 处理torch.compile编译后的模型权重
-        state_dict = checkpoint['unet_state_dict']
-        
-        # 检查是否有_orig_mod.前缀（torch.compile产生的）
-        if any(key.startswith('_orig_mod.') for key in state_dict.keys()):
-            print("⚠️ 检测到torch.compile编译的模型，正在处理权重前缀...")
-            # 移除_orig_mod.前缀
-            new_state_dict = {}
-            for key, value in state_dict.items():
-                if key.startswith('_orig_mod.'):
-                    new_key = key[len('_orig_mod.'):]  # 移除前缀
-                    new_state_dict[new_key] = value
-                else:
-                    new_state_dict[key] = value
-            state_dict = new_state_dict
-        
-        self.unet.load_state_dict(state_dict)
-        print(f"✅ 模型已从 {path} 加载")
-    
-    def interpolate(self, x1, x2, num_steps=10):
-        """在两个图像之间进行插值"""
-        with torch.no_grad():
-            # 线性插值
-            alphas = torch.linspace(0, 1, num_steps, device=self.device)
-            interpolated_samples = []
-            
-            for alpha in alphas:
-                # 在图像空间中直接插值
-                interpolated = (1 - alpha) * x1 + alpha * x2
-                interpolated_samples.append(interpolated)
-            
-            # 拼接成batch，保持4D张量格式 (batch_size, channels, height, width)
-            return torch.cat(interpolated_samples, dim=0) 
+            samples = self.diffusion.sample(batch_size=batch_size)
+        return samples 
