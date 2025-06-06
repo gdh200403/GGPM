@@ -52,7 +52,7 @@ def prepare_cifar10_data(config):
     print(f"CIFAR-10图像数据准备完成: {data_dir}")
     return data_dir
 
-def train_with_trainer(config):
+def train(config):
     """使用Trainer进行训练"""
     
     # 准备数据
@@ -78,7 +78,7 @@ def train_with_trainer(config):
     trainer.train()
     
     print("训练完成！")
-    return trainer
+    return
 
 def test_setup():
     """测试训练设置"""
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     
     # 开始训练
     try:
-        trainer = train_with_trainer(config)
+        train(config)
         print("🎉 训练成功完成！")
     except Exception as e:
         print(f"❌ 训练过程中出错: {e}")
