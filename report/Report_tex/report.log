@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.9.3)  9 JUN 2025 02:23
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.9.3)  9 JUN 2025 03:29
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -471,19 +471,79 @@ Overfull \hbox (39.06094pt too wide) detected at line 164
 []
  []
 
-[5] [6] [7] (./report.aux)
+[5]
+
+Package fontspec Warning: Font "STFangsong" does not contain requested Script
+(fontspec)                "CJK".
+
+
+Package fontspec Info: Could not resolve font "STFangsong/BI" (it probably
+(fontspec)             doesn't exist).
+
+
+Package fontspec Info: Could not resolve font "STFangsong/B" (it probably
+(fontspec)             doesn't exist).
+
+
+Package fontspec Info: Could not resolve font "STFangsong/I" (it probably
+(fontspec)             doesn't exist).
+
+
+Package fontspec Info: Font family 'STFangsong(0)' created for font
+(fontspec)             'STFangsong' with options [Script={CJK}].
+(fontspec)              
+(fontspec)              This font family consists of the following NFSS
+(fontspec)             series/shapes:
+(fontspec)              
+(fontspec)             - 'normal' (m/n) with NFSS spec.:
+(fontspec)             <->"STFangsong/OT:language=dflt;"
+(fontspec)             - 'small caps'  (m/sc) with NFSS spec.: 
+
+[6] (/usr/local/texlive/2024/texmf-dist/tex/latex/listings/lstlang1.sty
+File: lstlang1.sty 2024/02/21 1.10 listings language file
+)
+LaTeX Font Info:    Font shape `TU/lmtt/bx/n' in size <10.53937> not available
+(Font)              Font shape `TU/lmtt/b/n' tried instead on input line 278.
+ [7]
+Overfull \hbox (37.49147pt too wide) in paragraph at lines 333--334
+[]\TU/STSong(0)/m/n/10.53937 原 始 代 码 的 数 据 准 备 通 过 配 置 文 件 和 自 动 化 工 具 完 成，|  数 据 加 载 逻 辑 被 包 裹 在 \TU/lmtt/m/n/10.53937 prepare_cifar10_data
+ []
+
+
+Overfull \hbox (18.39905pt too wide) in paragraph at lines 346--347
+[][][][][][][][][][][][][][][][][][][][][][] 
+ []
+
+[8]
+Missing character: There is no ❌ (U+274C) in font [lmroman10-regular]:mapping=tex-text;!
+
+Overfull \hbox (35.45755pt too wide) in paragraph at lines 397--398
+[]\TU/STSong(0)/m/n/10.53937 在 完 成 了 基 础 训 练 流 程 的 重 写 后，|  我 们 进 一 步 关 注 训 练 效 率 与 工 程 优 化，|  开 发 了 \TU/lmtt/m/n/10.53937 optimized_train.py\TU/STSong(0)/m/n/10.53937 。|
+ []
+
+[9] [10]
+Overfull \hbox (31.16783pt too wide) in paragraph at lines 497--498
+[]\TU/STSong(0)/m/n/10.53937 在 完 成 基 础 分 辨 率 的 训 练 后，|  我 们 进 一 步 探 索 了 高 分 辨 率 图 像 的 扩 散 模 型 训 练。|  与 \TU/lmtt/m/n/10.53937 rewrite_train.py
+ []
+
+
+Overfull \hbox (37.3701pt too wide) in paragraph at lines 507--508
+[][][][][][][][][][][][][][][][][][][][] 
+ []
+
+[11] [12] [13] (./report.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2022/08/05>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 10829 strings out of 474773
- 274433 string characters out of 5757725
- 1942839 words of memory out of 5000000
- 32828 multiletter control sequences out of 15000+600000
- 567459 words of font info for 101 fonts, out of 8000000 for 9000
+ 11198 strings out of 474773
+ 281920 string characters out of 5757725
+ 1968839 words of memory out of 5000000
+ 33179 multiletter control sequences out of 15000+600000
+ 567683 words of font info for 109 fonts, out of 8000000 for 9000
  1348 hyphenation exceptions out of 8191
- 93i,16n,97p,1234b,265s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 93i,16n,97p,1234b,1532s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on report.pdf (7 pages).
+Output written on report.pdf (13 pages).
