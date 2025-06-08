@@ -1,0 +1,41 @@
+\contentsline {section}{\numberline {1}引言 (Introduction)}{3}{section.1}%
+\contentsline {section}{\numberline {2}相关工作 (Related Work)}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}U-Net 架构}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}ReLU 激活函数}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}变分自编码器 (Variational Autoencoder, VAE)}{4}{subsection.2.3}%
+\contentsline {section}{\numberline {3}DDPM 核心原理}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}前向过程 (Forward Process)}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}逆向过程 (Reverse Process)}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}损失函数 (Loss Function)}{7}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}采样过程 (Sampling Process)}{8}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}方差表和参数化选择 (Variance Schedule and Parameterization)}{8}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}条件生成 (Conditional Generation)}{8}{subsection.3.6}%
+\contentsline {section}{\numberline {4}Experiment}{9}{section.4}%
+\contentsline {subsection}{\numberline {4.1}数据集（Dataset）}{9}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Reproduction}{10}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Rewrite Training Code}{11}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Optimized Training}{12}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Larger picture size}{14}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Implementing Model on diffusers}{16}{subsection.4.6}%
+\contentsline {subsubsection}{\numberline {4.6.1}框架概述}{16}{subsubsection.4.6.1}%
+\contentsline {subsubsection}{\numberline {4.6.2}核心组件实现}{16}{subsubsection.4.6.2}%
+\contentsline {subsubsection}{\numberline {4.6.3}数据集实现}{17}{subsubsection.4.6.3}%
+\contentsline {subsubsection}{\numberline {4.6.4}配置系统}{17}{subsubsection.4.6.4}%
+\contentsline {subsubsection}{\numberline {4.6.5}训练实现}{18}{subsubsection.4.6.5}%
+\contentsline {subsubsection}{\numberline {4.6.6}推理实现}{19}{subsubsection.4.6.6}%
+\contentsline {subsubsection}{\numberline {4.6.7}工程实践与优化}{19}{subsubsection.4.6.7}%
+\contentsline {subsubsection}{\numberline {4.6.8}依赖管理}{20}{subsubsection.4.6.8}%
+\contentsline {subsection}{\numberline {4.7}Implementing Model on pyTorch}{20}{subsection.4.7}%
+\contentsline {subsubsection}{\numberline {4.7.1}模型架构实现}{21}{subsubsection.4.7.1}%
+\contentsline {subsubsection}{\numberline {4.7.2}训练过程实现}{21}{subsubsection.4.7.2}%
+\contentsline {subsubsection}{\numberline {4.7.3}采样过程实现}{21}{subsubsection.4.7.3}%
+\contentsline {subsubsection}{\numberline {4.7.4}代码优化与工程实践}{22}{subsubsection.4.7.4}%
+\contentsline {subsubsection}{\numberline {4.7.5}配置系统}{22}{subsubsection.4.7.5}%
+\contentsline {subsubsection}{\numberline {4.7.6}推理接口}{22}{subsubsection.4.7.6}%
+\contentsline {section}{\numberline {5}Results}{22}{section.5}%
+\contentsline {section}{\numberline {6}Conclusion}{29}{section.6}%
+\contentsline {section}{\numberline {7}References}{29}{section.7}%
+\contentsline {subsection}{\numberline {7.1}官方实现}{29}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}博客与教程}{29}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}开源代码库}{30}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}相关工作}{30}{subsection.7.4}%
