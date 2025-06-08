@@ -1,3 +1,4 @@
+from sympy import false
 import torch
 from denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer
 
@@ -21,7 +22,8 @@ class DDPMModel:
         self.unet = Unet(
             dim=dim,
             channels=channels,
-            dim_mults=dim_mults
+            dim_mults=dim_mults,
+            flash_attn=True
         ).to(device)
         
         # 初始化高斯扩散过程
@@ -55,7 +57,8 @@ class DDPMModel:
             amp=config.AMP,
             results_folder=config.RESULTS_FOLDER,
             save_and_sample_every=config.SAVE_AND_SAMPLE_EVERY,
-            num_samples=config.NUM_SAMPLES
+            num_samples=config.NUM_SAMPLES,
+            calculate_fid=false
         )
         return trainer
     

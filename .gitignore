@@ -4,3 +4,4 @@
 */demo_results/
 *.pt
 saved_model/
+*/results/

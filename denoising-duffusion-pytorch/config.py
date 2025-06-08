@@ -18,7 +18,7 @@ class DDPMConfig:
     # Trainer训练参数
     TRAIN_NUM_STEPS = 100000  # 总训练步数
     BATCH_SIZE = 32
-    LEARNING_RATE = 2e-5
+    LEARNING_RATE = 8e-5
     GRADIENT_ACCUMULATE_EVERY = 2  # 梯度累积步数
     EMA_DECAY = 0.995  # 指数移动平均衰减
     AMP = True  # 混合精度训练
@@ -55,7 +55,7 @@ class SmallConfig(DDPMConfig):
 
 class MediumConfig(DDPMConfig):
     """中等规模配置 - 适合服务器GPU"""
-    DIM = 128
+    DIM = 64
     DIM_MULTS = (1, 2, 4, 8)
     TIMESTEPS = 1000
     BATCH_SIZE = 64
@@ -64,12 +64,12 @@ class MediumConfig(DDPMConfig):
 
 class LargeConfig(DDPMConfig):
     """大规模配置 - 适合高端GPU"""
-    DIM = 256
+    DIM = 128
     DIM_MULTS = (1, 2, 4, 8)
     TIMESTEPS = 1000
-    BATCH_SIZE = 128
-    TRAIN_NUM_STEPS = 700000
-    SAVE_AND_SAMPLE_EVERY = 5000
+    BATCH_SIZE = 1024
+    TRAIN_NUM_STEPS = 10000
+    SAVE_AND_SAMPLE_EVERY = 500
 
 # 根据GPU内存自动选择配置
 def get_auto_config():

@@ -1,4 +1,4 @@
-import torch
+from genericpath import exists
 import os
 from ddpm_model import DDPMModel
 from config import get_auto_config, print_config
@@ -11,12 +11,13 @@ def prepare_cifar10_data(config):
     
     # 创建数据目录
     data_dir = os.path.join(config.DATA_ROOT, 'cifar10_images')
-    os.makedirs(data_dir, exist_ok=True)
-    
+
     # 如果数据已存在，直接返回路径
-    if len(os.listdir(data_dir)) > 1000:  # 假设已有足够图像
+    if exists(data_dir):  # 假设已有足够图像
         print(f"使用现有CIFAR-10图像数据: {data_dir}")
         return data_dir
+
+    os.makedirs(data_dir, exist_ok=True)
     
     print("正在准备CIFAR-10图像数据...")
     
