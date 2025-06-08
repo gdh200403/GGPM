@@ -9,6 +9,8 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage[table]{xcolor}
+\usepackage{float} % for [H] float placement option
+\usepackage{hyperref}
 
 \title{DDPM 从入门到入土}
 \author{郭东昊 \quad 高歌}
@@ -45,7 +47,7 @@ U-Net 的结构呈 “U” 形，由两个主要部分组成：
 \noindent 
 在DDPM 中，U-Net 的任务是在给定当前时间步 $t$ 的噪声图像 $x_t$ 的情况下，预测出该图像中包含的噪声 $\epsilon$。U-Net 的输入是噪声图像 $x_t$ 和当前时间步 $t$ 的嵌入表示，输出是一个与输入图像尺寸完全相同的噪声预测图。其强大的特征融合能力使其能够精确地预测噪声，从而在逆向过程中逐步恢复出清晰图像。
 
- \begin{figure}[htb]
+ \begin{figure}[H]
      \centering
      \includegraphics[width=0.8\textwidth]{unet.png}
      \caption{U-Net}
@@ -92,7 +94,7 @@ $$ q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1 - \beta_t} x_{t-1}, \beta_t I) $$
 其中 $\epsilon \sim \mathcal{N}(0, I)$。这个性质非常重要，它意味着我们可以在任意时间步 $t$ 直接从原始数据 $x_0$ 采样得到 $x_t$，而无需迭代计算。因此，从 $x_0$ 到 $x_t$ 的采样分布为：
 $$ q(x_t | x_0) = \mathcal{N}(x_t; \sqrt{\bar{\alpha}_t} x_0, (1 - \bar{\alpha}_t) I) $$
 
- \begin{figure}[htb]
+ \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{forward.png}
     \caption{forward process}
@@ -257,6 +259,7 @@ CIFAR-10和STL-10分别代表了低分辨率和高分辨率的典型图像生成
 \noindent
 \textbf{1. 使用 Hugging Face 预训练模型快速生成}
 
+\noindent
 我们首先利用 Hugging Face Hub 上的 Google 预训练 DDPM-CIFAR10 模型，直接生成高质量图片。核心流程如下：
 
 \begin{lstlisting}[language=python]
@@ -268,6 +271,7 @@ result = pipeline(batch_size=16)
 images = result["images"]
 \end{lstlisting}
 
+\noindent
 只需几行代码，即可加载模型并生成图片。我们还将多张图片拼接成网格，便于可视化：
 
 \begin{lstlisting}[language=python]
@@ -280,12 +284,14 @@ for idx, img in enumerate(images):
 grid_img.save("ddpm_cifar10_grid.png")
 \end{lstlisting}
 
+\noindent
 这种方式无需训练，直接体验扩散模型的生成能力，极大降低了复现门槛。
 
 \vspace{0.5em}
 \noindent
 \textbf{2. 基于 \texttt{denoising-diffusion-pytorch} 库的本地训练与复现}
 
+\noindent
 我们也基于 \texttt{denoising-diffusion-pytorch} 库进行了完整的本地训练和复现。核心流程包括模型构建、数据加载和训练主循环。例如：
 
 \begin{lstlisting}[language=python]
@@ -307,6 +313,7 @@ for epoch in range(epochs):
         optimizer.step()
 \end{lstlisting}
 
+\noindent
 训练完成后，我们可以调用模型的采样方法生成新图片：
 
 \begin{lstlisting}[language=python]
@@ -324,6 +331,7 @@ samples = model.sample(batch_size=16)
 \noindent
 \textbf{1. 从高度封装到手写训练循环：理解的深化}
 
+\noindent
 最初的 \texttt{train.py} 设计高度依赖于 \texttt{denoising-diffusion-pytorch} 包的封装。其训练流程主要通过模型自带的 \texttt{create\_trainer} 方法实现，训练主循环被隐藏在包内部。以 \texttt{train.py} 的核心训练部分为例：
 
 \begin{lstlisting}[language=python]
@@ -333,12 +341,14 @@ trainer = model.create_trainer(data_path, config)
 trainer.train()
 \end{lstlisting}
 
+\noindent
 这种方式虽然简洁，但对训练细节的把控较弱，难以深入理解每一步的具体实现。我们在初期主要是“调用者”，而非“实现者”。
 
 \vspace{0.5em}
 \noindent
 \textbf{2. 数据加载与预处理：从配置到显式实现}
 
+\noindent
 原始代码的数据准备通过配置文件和自动化工具完成，数据加载逻辑被包裹在 \texttt{prepare\_cifar10\_data} 函数和配置系统中。相比之下，我们在 \texttt{rewrite\_train.py} 中显式实现了数据加载和预处理流程：
 
 \begin{lstlisting}[language=python]
@@ -355,12 +365,14 @@ dataset = torchvision.datasets.CIFAR10(
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, ...)
 \end{lstlisting}
 
+\noindent
 通过手动实现数据管道，我们对数据增强、归一化等细节有了更直观的理解，也为后续自定义数据集和实验提供了便利。
 
 \vspace{0.5em}
 \noindent
 \textbf{3. 训练主循环：从黑盒到白盒}
 
+\noindent
 在 \texttt{rewrite\_train.py} 中，我们完全手写了训练主循环，明确了每一步的张量流动和梯度更新过程：
 
 \begin{lstlisting}[language=python]
@@ -372,6 +384,7 @@ for epoch in range(epochs):
         optimizer.step()
 \end{lstlisting}
 
+\noindent
 这种实现方式让我们能够灵活地插入调试信息、损失曲线绘制、模型保存与采样等功能。例如，我们在每个 \texttt{save\_interval} 保存模型权重和生成样本，并绘制损失曲线：
 
 \begin{lstlisting}[language=python]
@@ -386,6 +399,7 @@ if (epoch + 1) % save_interval == 0:
 \noindent
 \textbf{4. 训练验证与可复现性：主动测试与异常处理}
 
+\noindent
 我们在重写代码中加入了训练前的自动化验证（\texttt{test\_train\_setup}），确保数据加载、模型构建和单步训练均能正常运行。这一设计极大提升了训练脚本的健壮性和可复现性：
 
 \begin{lstlisting}[language=python]
@@ -395,8 +409,8 @@ if not test_train_setup():
 \end{lstlisting}
 
 \vspace{0.5em}
-\noindent
 
+\noindent
 通过从“调用包接口”到“手写训练流程”的转变，我们不仅掌握了深度学习训练的基本范式，也能灵活地调整和扩展训练过程。重写训练代码的过程让我们对数据流、模型参数更新、损失监控、模型保存与采样等关键环节有了更深入的理解。这种“去封装化”的实践极大提升了我们对扩散模型训练机制的掌控力，也为后续的创新实验和问题排查打下了坚实基础。
 
 
@@ -408,6 +422,7 @@ if not test_train_setup():
 \noindent
 \textbf{1. 数据加载与管道优化}
 
+\noindent
 在 \texttt{rewrite\_train.py} 中，数据加载采用了较为基础的 \texttt{DataLoader} 配置。而在优化版中，我们根据硬件环境动态调整 \texttt{num\_workers}，启用 \texttt{persistent\_workers} 和 \texttt{prefetch\_factor}，并通过 \texttt{drop\_last} 保证每个 batch 大小一致，减少了数据等待和内存碎片：
 
 \begin{lstlisting}[language=python]
@@ -423,12 +438,14 @@ dataloader = DataLoader(
 )
 \end{lstlisting}
 
+\noindent
 这些细节优化让数据加载更加高效，充分利用多核 CPU 和 GPU 的数据吞吐能力。
 
 \vspace{0.5em}
 \noindent
 \textbf{2. 混合精度训练与梯度累积}
 
+\noindent
 我们在优化版中引入了 PyTorch 的混合精度训练（AMP），通过 \texttt{autocast} 和 \texttt{GradScaler} 显著提升了显存利用率和训练速度，尤其在现代 GPU 上效果显著。同时，针对显存有限的设备，支持梯度累积（\texttt{gradient\_accumulation\_steps}），以较小的 batch 实现更大的有效 batch size：
 
 \begin{lstlisting}[language=python]
@@ -451,6 +468,7 @@ else:
 \noindent
 \textbf{3. 优化器与学习率调度}
 
+\noindent
 优化版训练脚本采用了 \texttt{AdamW} 优化器，并引入了 \texttt{CosineAnnealingLR} 学习率调度器，使训练过程更加平滑、鲁棒，有助于模型收敛和泛化：
 
 \begin{lstlisting}[language=python]
@@ -472,12 +490,14 @@ scheduler = optim.lr_scheduler.CosineAnnealingLR(
 \noindent
 \textbf{4. 模型编译与高效保存}
 
+\noindent
 我们尝试集成了 PyTorch 2.0 的 \texttt{torch.compile}，对 U-Net 进行 JIT 编译以进一步加速前向推理。此外，优化版训练脚本支持高效检查点保存（仅保存最佳模型），减少磁盘占用和 I/O 开销。
 
 \vspace{0.5em}
 \noindent
 \textbf{5. 训练过程监控与快速采样}
 
+\noindent
 优化版训练脚本在每个 epoch 结束时，自动记录用时、损失、学习率等信息，并定期进行快速采样和可视化，便于实时监控模型生成质量：
 
 \begin{lstlisting}[language=python]
@@ -507,6 +527,7 @@ if (epoch + 1) % fast_sampling_interval == 0:
 \noindent
 \textbf{1. 数据集与分辨率适配}
 
+\noindent
 我们设计了灵活的数据加载接口，能够根据数据集自动选择原生分辨率，并支持上采样或下采样。例如，STL-10原生分辨率为96$\times$96，CelebA为64$\times$64，CIFAR-10为32$\times$32。对于目标分辨率大于原生分辨率的情况，需显式允许上采样：
 
 \begin{lstlisting}[language=python]
@@ -515,12 +536,14 @@ dataloader, dataset, image_size = get_native_high_res_dataloader(
 )
 \end{lstlisting}
 
+\noindent
 我们还根据分辨率自动调整数据增强策略，例如高分辨率时增加轻微旋转等。
 
 \vspace{0.5em}
 \noindent
 \textbf{2. 动态模型配置}
 
+\noindent
 高分辨率训练对模型容量提出更高要求。我们根据输入分辨率动态调整U-Net的宽度和层级倍数。例如：
 
 \begin{lstlisting}[language=python]
@@ -533,19 +556,21 @@ elif image_size <= 96:
 else:
     model_config = {'dim': 192, 'dim_mults': (1, 1, 2, 2, 4, 4)}
 \end{lstlisting}
-
+\noindent
 这种自适应配置保证了模型既能处理高分辨率输入，又不会因参数量过大导致显存溢出。
 
 \vspace{0.5em}
 \noindent
 \textbf{3. 智能批次大小与硬件适配}
 
+\noindent
 我们根据GPU型号和图像分辨率自动调整batch size。例如，96$\times$96分辨率在12GB显存下可用batch size 12，8GB显存则降为6。这一策略极大提升了训练的可移植性和稳定性。
 
 \vspace{0.5em}
 \noindent
 \textbf{4. 训练与采样流程}
 
+\noindent
 训练主循环与基础版类似，但在采样与可视化时针对高分辨率做了适配。我们定期保存高分辨率生成样本，并根据分辨率动态调整可视化网格和图片大小：
 
 \begin{lstlisting}[language=python]
@@ -566,6 +591,7 @@ if (epoch + 1) % 5 == 0:
 \noindent
 \textbf{5. 多数据集与实验管理}
 
+\noindent
 我们为不同分辨率和数据集自动生成实验目录，便于管理和对比不同实验结果。例如：
 
 \begin{lstlisting}[language=python]
@@ -914,20 +940,20 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 \section{Results}
 \noindent
 首先我们直接调用google/ddpm-cifar10-32预训练模型，直接进行推理，并生成图片。
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{ddpm_cifar10_grid1.png}
-    \caption{google_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{ddpm_cifar10_grid1.png}
+     \caption{google\_DDPM}
+     \label{fig:google_ddpm}  % 修改为唯一标签
 \end{figure}
 
 \noindent
 之后，我们使用Reproduction一节提到的denoising-diffusion-pytorch包，编写了训练框架，在租用的A800服务器上基于CIFAR-10数据集进行训练，经过15个小时，20000个batch训练（batch size=1024），相当于训练了300多个epoch，得到如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{ddpm_cifar10_grid.png}
-    \caption{reproduce_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{ddpm_cifar10_grid.png}
+     \caption{reproduce\_DDPM}
+     \label{fig:reproduce_ddpm}  % 修改为唯一标签
 \end{figure}
 
 \noindent
@@ -935,43 +961,43 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \noindent
 在以上结果的基础上，如前文对应章节所述，我们自己尝试实现了Training代码，仍然使用CIFAR-10数据集，这次因为发现A800太贵了，花了太多钱，所以改在3090上进行训练，经过5个小时，只训练了50个epoch，得到如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{epoch_50_samples_retrain.png}
-    \caption{rewrite_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{epoch_50_samples_retrain.png}
+     \caption{rewrite\_DDPM}
+     \label{fig:rewrite_ddpm}  % 修改为唯一标签
 \end{figure}
 
 \noindent
 可以看到，训练效果和别人的模型相比，还是有很大差距的。损失函数如下：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{loss_retrain.png}
-    \caption{loss_retrain}
-    \label{fig:loss_retrain}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.9\textwidth]{loss_retrain.png}
+     \caption{loss\_retrain}
+     \label{fig:loss_retrain}  % 这个是正确的，可以保留
 \end{figure}
 
 \noindent
 如前所述，由于时间有限，在此基础上，为了在较短时间内能训练较多的轮次，我们对训练代码进行了优化，小幅提高了训练速度，在3090上训练12个小时，训练了250个epoch，得到如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{epoch_250_samples_opt.png}
-    \caption{opt_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{epoch_250_samples_opt.png}
+     \caption{opt\_DDPM}
+     \label{fig:opt_ddpm}  % 修改为唯一标签
 \end{figure}
 
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{loss_curve_epoch_250_opt.png}
-    \caption{loss_opt}
-    \label{fig:loss_retrain}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.9\textwidth]{loss_curve_epoch_250_opt.png}
+     \caption{loss\_opt}
+     \label{fig:loss_opt}  % 修改为唯一标签
 \end{figure}
 
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{real_vs_opt.png}
-    \caption{real_vs_opt}
-    \label{fig:loss_retrain}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.9\textwidth]{real_vs_opt.png}
+     \caption{real\_vs\_opt}
+     \label{fig:real_vs_opt}  % 修改为唯一标签
 \end{figure}
 
 \noindent
@@ -979,18 +1005,18 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \noindent
 为更清晰地展现生成结果，我们尝试在分辨率更高的stl10数据集（96*96）上进行训练，由于分辨率很高，训练速度显著降低，条件有限，我们只能使用3090训练12个小时，训练了50个epoch，得到如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{epoch_50_samples_stl.png}
-    \caption{stl10_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{epoch_50_samples_stl.png}
+     \caption{stl10\_DDPM}
+     \label{fig:stl10_ddpm}  % 修改为唯一标签
 \end{figure}
 
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{loss_stl.png}
-    \caption{loss_stl}
-    \label{fig:loss_retrain}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.9\textwidth]{loss_stl.png}
+     \caption{loss\_stl}
+     \label{fig:loss_stl}  % 修改为唯一标签
 \end{figure}
 
 \noindent
@@ -998,11 +1024,11 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \noindent
 这时我们注意到，对比参考模型，我们的模型生成的图片明显发灰，几经尝试，无果，遂大改，解决了问题。由于时间有限，没有训练更多轮次，生成图片如下：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{sample_fix.png}
-    \caption{fix_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{sample_fix.png}
+     \caption{fix\_DDPM}
+     \label{fig:fix_ddpm}  % 修改为唯一标签
 \end{figure}
 
 \noindent
@@ -1010,11 +1036,11 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \noindent
 接下来，我们尝试对模型的更多细节进行实现，以增加对模型的理解。首先，我们选用了pyTorch的Diffusers库，对模型进行简单的拆解和重新实现，并进行了适当轮次的训练，我们对此模型充满自信，租用A800服务器训练了10个小时，得到了如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{sample_diffuser.png}
-    \caption{diffuser_DDPM}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{sample_diffuser.png}
+     \caption{diffuser\_DDPM}
+     \label{fig:diffuser_ddpm}  % 修改为唯一标签
 \end{figure}
 
 \noindent
@@ -1022,20 +1048,77 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \noindent
 最后，我们花了大量时间，参考网上的博客文章，使用纯pyTorch从头实现了一个DDPM模型，并进行了训练，在A800上训练6个小时，得到了如下的结果展示：
-\begin{figure}[htb]
-    \centering
-    \includegraphics[width=0.9\textwidth]{sample_pyt.png}
-    \caption{pyt_inference}
-    \label{fig:cifar10_grid}
+\begin{figure}[H]
+     \centering
+     \includegraphics[width=0.5\textwidth]{sample_pyt.png}
+     \caption{pyt\_inference}
+     \label{fig:pyt_inference}  % 修改为唯一标签
 \end{figure}
 
 \noindent
 图片中可以清楚地看到右下角的小马，第一排的小鸟，还有飞机、轮船以及一些其它动物。对比参考模型，可以看到，我们的结果色调更加真实，但是对于和背景颜色比较接近的主体边缘不够清晰。但是总体令人满意。
 
 \section{Conclusion}
+\noindent
+本研究全面探索了去噪扩散概率模型(DDPM)的理论基础、实现路径和优化策略。通过从简单复现到深度优化的系统性实验，我们获得了以下关键发现：
 
+\noindent
+首先，扩散模型的实现复杂度体现在多个层面。初期依赖Google预训练模型的直接推理展示了DDPM优秀的生成能力，但真正掌握其核心机制需要深入理解前向扩散过程和逆向生成过程的数学原理。我们逐步从调用现有框架过渡到完全自主实现，这一过程不仅深化了对算法的理解，也揭示了工程实践中的关键挑战。
+
+\noindent
+其次，训练策略和优化技术对生成质量影响显著。我们的实验表明，相同模型架构下，更长的训练时间和更大的数据规模能显著提升生成质量。特别地，在CIFAR-10上的对比实验显示，经过250个epoch的优化训练后，模型生成能力有明显提升，但与预训练模型仍存在差距，表明训练深度和超参数调优的重要性。
+
+\noindent
+针对计算资源限制问题，我们开发了多项优化技术，包括混合精度训练、梯度累积和动态批次大小调整，有效缓解了高分辨率训练的内存压力。在STL-10（96×96）数据集上的实验虽然受限于训练轮次，但证明了模型能够适应更高分辨率任务，并在细节表现上有独特优势。
+
+\noindent
+在框架选择方面，我们的对比实验表明，基于diffusers库的实现在生成质量和训练效率上表现优异，而从头开始的PyTorch实现则提供了最大的灵活性和对模型内部机制的深入理解。尤其是最终的纯PyTorch实现成功生成了细节丰富的图像，可以清晰识别出各类物体，色调真实自然，虽然在物体边缘清晰度上还有提升空间。
+
+\noindent
+总结来看，DDPM作为一种强大的生成模型，在理论优雅性和实际效果上都展现出巨大潜力。本研究不仅复现了其核心功能，更通过系统优化和自主实现深化了对扩散模型的理解，为后续研究提供了坚实基础。未来工作可进一步探索条件生成、多模态扩散和更高效的采样策略，以扩展DDPM的应用范围和提升生成质量。
 
 \section{References}
 
+\subsection{官方实现}
+\begin{itemize}
+    \item Ho, J., Jain, A., \& Abbeel, P. (2020). Denoising diffusion probabilistic models. \textit{Advances in Neural Information Processing Systems}, 33, 6840-6851.\\
+    论文：arXiv:2006.11239 \\
+    代码库：\url{https://github.com/hojonathanho/diffusion}
+\end{itemize}
+
+\subsection{博客与教程}
+\begin{itemize}
+    \item Weng, L. (2021). What are Diffusion Models? \textit{Lil'Log}. \\
+    \url{https://lilianweng.github.io/posts/2021-07-11-diffusion-models/}
+    
+    \item Hugging Face. (2022). The Annotated Diffusion Model. \\
+    \url{https://huggingface.co/blog/annotated-diffusion}
+    
+    \item AssemblyAI. (2022). Introduction to Diffusion Models for Machine Learning. \\
+    \url{https://www.assemblyai.com/blog/diffusion-models-for-machine-learning-introduction}
+    
+    \item LittleNyima. (2022). 笔记｜扩散模型（一）：DDPM 理论与实现. \textit{極東晝寢愛好家}. \\
+    \url{https://littlenyima.github.io/posts/13-denoising-diffusion-probabilistic-models/} \\
+    对应代码库：\url{https://github.com/LittleNyima/code-snippets/tree/master}
+\end{itemize}
+
+\subsection{开源代码库}
+\begin{itemize}
+    \item Zou, B. (2021). DenoisingDiffusionProbabilityModel-ddpm. GitHub. \\
+    \url{https://github.com/zoubohao/DenoisingDiffusionProbabilityModel-ddpm-}
+    
+    \item Wang, P. (2020). denoising-diffusion-pytorch. GitHub. \\
+    \url{https://github.com/lucidrains/denoising-diffusion-pytorch}
+\end{itemize}
+
+\subsection{相关工作}
+\begin{itemize}
+    \item Nichol, A., \& Dhariwal, P. (2021). Improved denoising diffusion probabilistic models. \textit{International Conference on Machine Learning}, 8162-8171.
+    
+    \item Song, J., Meng, C., \& Ermon, S. (2020). Denoising diffusion implicit models. \textit{International Conference on Learning Representations}.
+    
+    \item Dhariwal, P., \& Nichol, A. (2021). Diffusion models beat GANs on image synthesis. \textit{Advances in Neural Information Processing Systems}, 34, 8780-8794.
+\end{itemize}
+ 
     
 \end{document}
