@@ -10,7 +10,7 @@
 \usepackage{listings}
 \usepackage[table]{xcolor}
 
-\title{去噪扩散概率模型 (DDPM) 原理详解}
+\title{DDPM 从入门到入土}
 \author{郭东昊 \quad 高歌}
 
 \begin{document}
@@ -45,12 +45,12 @@ U-Net 的结构呈 “U” 形，由两个主要部分组成：
 \noindent 
 在DDPM 中，U-Net 的任务是在给定当前时间步 $t$ 的噪声图像 $x_t$ 的情况下，预测出该图像中包含的噪声 $\epsilon$。U-Net 的输入是噪声图像 $x_t$ 和当前时间步 $t$ 的嵌入表示，输出是一个与输入图像尺寸完全相同的噪声预测图。其强大的特征融合能力使其能够精确地预测噪声，从而在逆向过程中逐步恢复出清晰图像。
 
-% \begin{figure}[htb]
-%     \centering
-%     \includegraphics[width=0.8\textwidth]{unet_architecture_placeholder.png}
-%     \caption{U-Net 架构示意图。左侧为收缩路径（编码器），右侧为扩张路径（解码器），灰色的箭头代表跳跃连接。}
-%     \label{fig:unet}
-% \end{figure}
+ \begin{figure}[htb]
+     \centering
+     \includegraphics[width=0.8\textwidth]{unet.png}
+     \caption{U-Net}
+     \label{fig:unet}
+ \end{figure}
 
 \subsection{ReLU 激活函数}
 \noindent
@@ -92,12 +92,12 @@ $$ q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1 - \beta_t} x_{t-1}, \beta_t I) $$
 其中 $\epsilon \sim \mathcal{N}(0, I)$。这个性质非常重要，它意味着我们可以在任意时间步 $t$ 直接从原始数据 $x_0$ 采样得到 $x_t$，而无需迭代计算。因此，从 $x_0$ 到 $x_t$ 的采样分布为：
 $$ q(x_t | x_0) = \mathcal{N}(x_t; \sqrt{\bar{\alpha}_t} x_0, (1 - \bar{\alpha}_t) I) $$
 
-% \begin{figure}[htb]
-%    \centering
-%    \includegraphics[width=0.9\textwidth]{forward_process_placeholder.png}
-%    \caption{前向扩散过程示意图。从左到右，原始图像 $x_0$ 逐步被添加噪声，最终在 $T$ 步后变成纯高斯噪声 $x_T$。}
-%    \label{fig:forward}
-%\end{figure}
+ \begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{forward.png}
+    \caption{forward process}
+    \label{fig:forward}
+ \end{figure}
 
 \subsection{逆向过程 (Reverse Process)}
 \noindent
@@ -913,7 +913,7 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 
 \section{Results}
 \noindent
-首先我们直接调用google/ddpm-cifar10-32模型，在CIFAR-10数据集上进行训练，并生成图片。
+首先我们直接调用google/ddpm-cifar10-32预训练模型，直接进行推理，并生成图片。
 \begin{figure}[htb]
     \centering
     \includegraphics[width=0.9\textwidth]{ddpm_cifar10_grid1.png}
@@ -922,22 +922,115 @@ diffusers是一个由Hugging Face开发的专门用于扩散模型的PyTorch库�
 \end{figure}
 
 \noindent
-之后，我们直接  ，复现了一个结果，结果展示如下。
-
-\noindent
-在以上结果的基础上，我们重写了Training代码，并使用CIFAR-10数据集，在3090上进行训练，经过12个小时，得到如下的结果展示：
+之后，我们使用Reproduction一节提到的denoising-diffusion-pytorch包，编写了训练框架，在租用的A800服务器上基于CIFAR-10数据集进行训练，经过15个小时，20000个batch训练（batch size=1024），相当于训练了300多个epoch，得到如下的结果展示：
 \begin{figure}[htb]
     \centering
-    \includegraphics[width=0.9\textwidth]{epoch_10_samples_rewrite.png}
+    \includegraphics[width=0.9\textwidth]{ddpm_cifar10_grid.png}
+    \caption{reproduce_DDPM}
+    \label{fig:cifar10_grid}
+\end{figure}
+
+\noindent
+可以看到，别人的模型就是好！
+
+\noindent
+在以上结果的基础上，如前文对应章节所述，我们自己尝试实现了Training代码，仍然使用CIFAR-10数据集，这次因为发现A800太贵了，花了太多钱，所以改在3090上进行训练，经过5个小时，只训练了50个epoch，得到如下的结果展示：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{epoch_50_samples_retrain.png}
     \caption{rewrite_DDPM}
     \label{fig:cifar10_grid}
 \end{figure}
 
 \noindent
+可以看到，训练效果和别人的模型相比，还是有很大差距的。损失函数如下：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{loss_retrain.png}
+    \caption{loss_retrain}
+    \label{fig:loss_retrain}
+\end{figure}
 
+\noindent
+如前所述，由于时间有限，在此基础上，为了在较短时间内能训练较多的轮次，我们对训练代码进行了优化，小幅提高了训练速度，在3090上训练12个小时，训练了250个epoch，得到如下的结果展示：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{epoch_250_samples_opt.png}
+    \caption{opt_DDPM}
+    \label{fig:cifar10_grid}
+\end{figure}
 
-\subsection{File Framework}
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{loss_curve_epoch_250_opt.png}
+    \caption{loss_opt}
+    \label{fig:loss_retrain}
+\end{figure}
 
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{real_vs_opt.png}
+    \caption{real_vs_opt}
+    \label{fig:loss_retrain}
+\end{figure}
+
+\noindent
+可以看到，相比上一次的训练，训练速度明显加快，损失函数下降也更加平缓。生成图片的质量也有一些提升，但和真实图像的差距仍然很大，有很多图片的细节仍然很模糊，比如飞机的螺旋桨，汽车的轮胎等，难以辨认。
+
+\noindent
+为更清晰地展现生成结果，我们尝试在分辨率更高的stl10数据集（96*96）上进行训练，由于分辨率很高，训练速度显著降低，条件有限，我们只能使用3090训练12个小时，训练了50个epoch，得到如下的结果展示：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{epoch_50_samples_stl.png}
+    \caption{stl10_DDPM}
+    \label{fig:cifar10_grid}
+\end{figure}
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{loss_stl.png}
+    \caption{loss_stl}
+    \label{fig:loss_retrain}
+\end{figure}
+
+\noindent
+可以看到，尽管生成的图片几乎看不出是什么，但由于分辨率的增加，各处细节更加清晰，仿佛图片试图在模拟真实世界的某些特征。
+
+\noindent
+这时我们注意到，对比参考模型，我们的模型生成的图片明显发灰，几经尝试，无果，遂大改，解决了问题。由于时间有限，没有训练更多轮次，生成图片如下：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{sample_fix.png}
+    \caption{fix_DDPM}
+    \label{fig:cifar10_grid}
+\end{figure}
+
+\noindent
+可以看到，虽然很模糊，但是生成图片不再发灰。
+
+\noindent
+接下来，我们尝试对模型的更多细节进行实现，以增加对模型的理解。首先，我们选用了pyTorch的Diffusers库，对模型进行简单的拆解和重新实现，并进行了适当轮次的训练，我们对此模型充满自信，租用A800服务器训练了10个小时，得到了如下的结果展示：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{sample_diffuser.png}
+    \caption{diffuser_DDPM}
+    \label{fig:cifar10_grid}
+\end{figure}
+
+\noindent
+可以看到，生成图片质量明显提高，写得好，钱没白花。
+
+\noindent
+最后，我们花了大量时间，参考网上的博客文章，使用纯pyTorch从头实现了一个DDPM模型，并进行了训练，在A800上训练6个小时，得到了如下的结果展示：
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{sample_pyt.png}
+    \caption{pyt_inference}
+    \label{fig:cifar10_grid}
+\end{figure}
+
+\noindent
+图片中可以清楚地看到右下角的小马，第一排的小鸟，还有飞机、轮船以及一些其它动物。对比参考模型，可以看到，我们的结果色调更加真实，但是对于和背景颜色比较接近的主体边缘不够清晰。但是总体令人满意。
 
 \section{Conclusion}
 
