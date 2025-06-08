@@ -242,9 +242,333 @@ $$ \tilde{\epsilon}_\theta(x_t, t, y) = \epsilon_\theta(x_t, t) + s \cdot (\epsi
 
 \subsection{Reproduction}
 
+本节简要介绍我们在复现扩散模型时，分别采用 Hugging Face 上 Google 预训练模型和本地 \texttt{denoising-diffusion-pytorch} 库的核心方法。
+
+\vspace{0.5em}
+\noindent
+\textbf{1. 使用 Hugging Face 预训练模型快速生成}
+
+我们首先利用 Hugging Face Hub 上的 Google 预训练 DDPM-CIFAR10 模型，直接生成高质量图片。核心流程如下：
+
+\begin{lstlisting}[language=python]
+from diffusers.pipelines.ddpm.pipeline_ddpm import DDPMPipeline
+
+pipeline = DDPMPipeline.from_pretrained("google/ddpm-cifar10-32")
+pipeline.to("cuda")  # 或 "cpu"
+result = pipeline(batch_size=16)
+images = result["images"]
+\end{lstlisting}
+
+只需几行代码，即可加载模型并生成图片。我们还将多张图片拼接成网格，便于可视化：
+
+\begin{lstlisting}[language=python]
+from PIL import Image
+grid_img = Image.new('RGB', (img_w * grid_size, img_h * grid_size))
+for idx, img in enumerate(images):
+    row = idx // grid_size
+    col = idx % grid_size
+    grid_img.paste(img, (col * img_w, row * img_h))
+grid_img.save("ddpm_cifar10_grid.png")
+\end{lstlisting}
+
+这种方式无需训练，直接体验扩散模型的生成能力，极大降低了复现门槛。
+
+\vspace{0.5em}
+\noindent
+\textbf{2. 基于 \texttt{denoising-diffusion-pytorch} 库的本地训练与复现}
+
+我们也基于 \texttt{denoising-diffusion-pytorch} 库进行了完整的本地训练和复现。核心流程包括模型构建、数据加载和训练主循环。例如：
+
+\begin{lstlisting}[language=python]
+from ddpm_model import DDPMModel
+
+model = DDPMModel(
+    image_size=32,
+    channels=3,
+    dim=64,
+    dim_mults=(1, 2, 4, 8),
+    timesteps=1000
+)
+optimizer = torch.optim.Adam(model.unet.parameters(), lr=1e-4)
+for epoch in range(epochs):
+    for data, _ in dataloader:
+        optimizer.zero_grad()
+        loss = model.train_step(data)
+        loss.backward()
+        optimizer.step()
+\end{lstlisting}
+
+训练完成后，我们可以调用模型的采样方法生成新图片：
+
+\begin{lstlisting}[language=python]
+samples = model.sample(batch_size=16)
+\end{lstlisting}
+
+这种方式让我们能够深入理解扩散模型的训练与推理机制，并灵活调整各项参数，适配不同实验需求。
+
+
 \subsection{Rewrite Training Code}
 
+在本节中，我们对比分析了原始的 \texttt{train.py} 与我们自主重写的 \texttt{rewrite\_train.py}，并结合代码实现，阐述了我们在训练模块实现上的理解与提升。
+
+\vspace{0.5em}
+\noindent
+\textbf{1. 从高度封装到手写训练循环：理解的深化}
+
+最初的 \texttt{train.py} 设计高度依赖于 \texttt{denoising-diffusion-pytorch} 包的封装。其训练流程主要通过模型自带的 \texttt{create\_trainer} 方法实现，训练主循环被隐藏在包内部。以 \texttt{train.py} 的核心训练部分为例：
+
+\begin{lstlisting}[language=python]
+# train.py 片段
+model = DDPMModel(...)
+trainer = model.create_trainer(data_path, config)
+trainer.train()
+\end{lstlisting}
+
+这种方式虽然简洁，但对训练细节的把控较弱，难以深入理解每一步的具体实现。我们在初期主要是“调用者”，而非“实现者”。
+
+\vspace{0.5em}
+\noindent
+\textbf{2. 数据加载与预处理：从配置到显式实现}
+
+原始代码的数据准备通过配置文件和自动化工具完成，数据加载逻辑被包裹在 \texttt{prepare\_cifar10\_data} 函数和配置系统中。相比之下，我们在 \texttt{rewrite\_train.py} 中显式实现了数据加载和预处理流程：
+
+\begin{lstlisting}[language=python]
+# rewrite_train.py 片段
+transform = transforms.Compose([
+    transforms.Resize(image_size),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+])
+dataset = torchvision.datasets.CIFAR10(
+    root='./data', train=True, download=True, transform=transform
+)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, ...)
+\end{lstlisting}
+
+通过手动实现数据管道，我们对数据增强、归一化等细节有了更直观的理解，也为后续自定义数据集和实验提供了便利。
+
+\vspace{0.5em}
+\noindent
+\textbf{3. 训练主循环：从黑盒到白盒}
+
+在 \texttt{rewrite\_train.py} 中，我们完全手写了训练主循环，明确了每一步的张量流动和梯度更新过程：
+
+\begin{lstlisting}[language=python]
+for epoch in range(epochs):
+    for batch_idx, (data, _) in enumerate(dataloader):
+        optimizer.zero_grad()
+        loss = model.train_step(data)
+        loss.backward()
+        optimizer.step()
+\end{lstlisting}
+
+这种实现方式让我们能够灵活地插入调试信息、损失曲线绘制、模型保存与采样等功能。例如，我们在每个 \texttt{save\_interval} 保存模型权重和生成样本，并绘制损失曲线：
+
+\begin{lstlisting}[language=python]
+if (epoch + 1) % save_interval == 0:
+    model.save_model(checkpoint_path)
+    samples = model.sample(batch_size=16)
+    save_samples(samples, ...)
+    plot_losses(losses, ...)
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+\textbf{4. 训练验证与可复现性：主动测试与异常处理}
+
+我们在重写代码中加入了训练前的自动化验证（\texttt{test\_train\_setup}），确保数据加载、模型构建和单步训练均能正常运行。这一设计极大提升了训练脚本的健壮性和可复现性：
+
+\begin{lstlisting}[language=python]
+if not test_train_setup():
+    print("❌ 验证失败，请检查环境设置")
+    sys.exit(1)
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+\textbf{5. 总结与反思}
+
+通过从“调用包接口”到“手写训练流程”的转变，我们不仅掌握了深度学习训练的基本范式，也能灵活地调整和扩展训练过程。重写训练代码的过程让我们对数据流、模型参数更新、损失监控、模型保存与采样等关键环节有了更深入的理解。这种“去封装化”的实践极大提升了我们对扩散模型训练机制的掌控力，也为后续的创新实验和问题排查打下了坚实基础。
+
+
+\subsection{Optimized Training}
+
+在完成了基础训练流程的重写后，我们进一步关注训练效率与工程优化，开发了 \texttt{optimized\_train.py}。与 \texttt{rewrite\_train.py} 相比，优化版训练脚本在数据加载、硬件利用、训练稳定性和采样监控等方面进行了系统性提升，显著加快了实验迭代速度，也加深了我们对深度学习工程实践的理解。
+
+\vspace{0.5em}
+\noindent
+\textbf{1. 数据加载与管道优化}
+
+在 \texttt{rewrite\_train.py} 中，数据加载采用了较为基础的 \texttt{DataLoader} 配置。而在优化版中，我们根据硬件环境动态调整 \texttt{num\_workers}，启用 \texttt{persistent\_workers} 和 \texttt{prefetch\_factor}，并通过 \texttt{drop\_last} 保证每个 batch 大小一致，减少了数据等待和内存碎片：
+
+\begin{lstlisting}[language=python]
+dataloader = DataLoader(
+    dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=num_workers,
+    pin_memory=True,
+    persistent_workers=True if num_workers > 0 else False,
+    prefetch_factor=2,
+    drop_last=True
+)
+\end{lstlisting}
+
+这些细节优化让数据加载更加高效，充分利用多核 CPU 和 GPU 的数据吞吐能力。
+
+\vspace{0.5em}
+\noindent
+\textbf{2. 混合精度训练与梯度累积}
+
+我们在优化版中引入了 PyTorch 的混合精度训练（AMP），通过 \texttt{autocast} 和 \texttt{GradScaler} 显著提升了显存利用率和训练速度，尤其在现代 GPU 上效果显著。同时，针对显存有限的设备，支持梯度累积（\texttt{gradient\_accumulation\_steps}），以较小的 batch 实现更大的有效 batch size：
+
+\begin{lstlisting}[language=python]
+if use_amp and scaler is not None:
+    with autocast():
+        loss = model.train_step(data) / gradient_accumulation_steps
+    scaler.scale(loss).backward()
+    if (batch_idx + 1) % gradient_accumulation_steps == 0:
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
+else:
+    # 标准训练
+    ...
+\end{lstlisting}
+
+这种灵活的训练策略让我们能够在不同硬件环境下高效利用资源，提升实验效率。
+
+\vspace{0.5em}
+\noindent
+\textbf{3. 优化器与学习率调度}
+
+优化版训练脚本采用了 \texttt{AdamW} 优化器，并引入了 \texttt{CosineAnnealingLR} 学习率调度器，使训练过程更加平滑、鲁棒，有助于模型收敛和泛化：
+
+\begin{lstlisting}[language=python]
+optimizer = optim.AdamW(
+    model.unet.parameters(), 
+    lr=learning_rate,
+    weight_decay=0.01,
+    betas=(0.9, 0.999),
+    eps=1e-8
+)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(
+    optimizer, 
+    T_max=epochs,
+    eta_min=learning_rate * 0.1
+)
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+\textbf{4. 模型编译与高效保存}
+
+我们尝试集成了 PyTorch 2.0 的 \texttt{torch.compile}，对 U-Net 进行 JIT 编译以进一步加速前向推理。此外，优化版训练脚本支持高效检查点保存（仅保存最佳模型），减少磁盘占用和 I/O 开销。
+
+\vspace{0.5em}
+\noindent
+\textbf{5. 训练过程监控与快速采样}
+
+优化版训练脚本在每个 epoch 结束时，自动记录用时、损失、学习率等信息，并定期进行快速采样和可视化，便于实时监控模型生成质量：
+
+\begin{lstlisting}[language=python]
+if (epoch + 1) % fast_sampling_interval == 0:
+    model.unet.eval()
+    with torch.no_grad():
+        quick_samples = model.sample(batch_size=4)
+        save_optimized_samples(
+            quick_samples, 
+            f'optimized_training/quick_epoch_{epoch+1}.png',
+            epoch=epoch+1,
+            loss=avg_loss
+        )
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+\textbf{6. 总结与反思}
+
+通过对训练流程的系统性优化，我们不仅提升了训练速度和资源利用率，也积累了深度学习工程化的宝贵经验。优化训练脚本的开发让我们深刻体会到，模型性能的提升不仅依赖于算法本身，更离不开高效的数据管道、合理的硬件利用和科学的训练监控。未来，我们还将探索分布式训练、自动混合精度和更智能的调度策略，持续提升实验效率和模型表现。
+
+
 \subsection{Larger picture size}
+
+在完成基础分辨率的训练后，我们进一步探索了高分辨率图像的扩散模型训练。与 \texttt{rewrite\_train.py} 仅支持CIFAR-10（32$\times$32）不同，\texttt{train\_high\_res.py} 针对如STL-10（96$\times$96）、CelebA（64$\times$64）等高分辨率数据集进行了专门适配。
+
+\vspace{0.5em}
+\noindent
+\textbf{1. 数据集与分辨率适配}
+
+我们设计了灵活的数据加载接口，能够根据数据集自动选择原生分辨率，并支持上采样或下采样。例如，STL-10原生分辨率为96$\times$96，CelebA为64$\times$64，CIFAR-10为32$\times$32。对于目标分辨率大于原生分辨率的情况，需显式允许上采样：
+
+\begin{lstlisting}[language=python]
+dataloader, dataset, image_size = get_native_high_res_dataloader(
+    dataset_name='stl10', target_size=96, use_upsampling=False, batch_size=16
+)
+\end{lstlisting}
+
+我们还根据分辨率自动调整数据增强策略，例如高分辨率时增加轻微旋转等。
+
+\vspace{0.5em}
+\noindent
+\textbf{2. 动态模型配置}
+
+高分辨率训练对模型容量提出更高要求。我们根据输入分辨率动态调整U-Net的宽度和层级倍数。例如：
+
+\begin{lstlisting}[language=python]
+if image_size <= 32:
+    model_config = {'dim': 64, 'dim_mults': (1, 2, 4, 8)}
+elif image_size <= 64:
+    model_config = {'dim': 128, 'dim_mults': (1, 2, 4, 8)}
+elif image_size <= 96:
+    model_config = {'dim': 160, 'dim_mults': (1, 2, 4, 8)}
+else:
+    model_config = {'dim': 192, 'dim_mults': (1, 1, 2, 2, 4, 4)}
+\end{lstlisting}
+
+这种自适应配置保证了模型既能处理高分辨率输入，又不会因参数量过大导致显存溢出。
+
+\vspace{0.5em}
+\noindent
+\textbf{3. 智能批次大小与硬件适配}
+
+我们根据GPU型号和图像分辨率自动调整batch size。例如，96$\times$96分辨率在12GB显存下可用batch size 12，8GB显存则降为6。这一策略极大提升了训练的可移植性和稳定性。
+
+\vspace{0.5em}
+\noindent
+\textbf{4. 训练与采样流程}
+
+训练主循环与基础版类似，但在采样与可视化时针对高分辨率做了适配。我们定期保存高分辨率生成样本，并根据分辨率动态调整可视化网格和图片大小：
+
+\begin{lstlisting}[language=python]
+if (epoch + 1) % 5 == 0:
+    sample_count = min(9, batch_size)
+    quick_samples = model.sample(batch_size=sample_count)
+    save_native_samples(
+        quick_samples,
+        f'training_progress/{exp_name}/quick_epoch_{epoch+1}.png',
+        epoch=epoch+1,
+        loss=avg_loss,
+        image_size=image_size,
+        is_native=not use_upsampling
+    )
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+\textbf{5. 多数据集与实验管理}
+
+我们为不同分辨率和数据集自动生成实验目录，便于管理和对比不同实验结果。例如：
+
+\begin{lstlisting}[language=python]
+exp_name = f"{dataset_name}_native_{image_size}x{image_size}"
+os.makedirs(f'checkpoints/{exp_name}', exist_ok=True)
+\end{lstlisting}
+
+\vspace{0.5em}
+\noindent
+通过这些工程实践，我们实现了对高分辨率扩散模型训练的灵活支持，显著扩展了模型的应用范围和实验深度。
 
 \subsection{Solve the existing problems}
 

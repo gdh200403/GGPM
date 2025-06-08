@@ -53,5 +53,5 @@ def generate_cifar10_images(num_images=16, seed=None):
 
 if __name__ == "__main__":
     NUM_IMAGES_TO_GENERATE = 16  # 生成16张图片
-    RANDOM_SEED = 42
+    RANDOM_SEED = 318
     generate_cifar10_images(num_images=NUM_IMAGES_TO_GENERATE, seed=RANDOM_SEED)
