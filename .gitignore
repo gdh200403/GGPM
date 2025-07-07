@@ -5,3 +5,4 @@
 *.pt
 saved_model/
 */results/
+*.zip
